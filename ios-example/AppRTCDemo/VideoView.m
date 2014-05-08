@@ -3,118 +3,143 @@
 //
 /*
  *
- * Last updated by: Gregg Ganley
- * Nov 2013
+ * Last updated by: Josip Bernat
+ * May 2014
  *
  */
 
 
 #import "VideoView.h"
-
-#import "RTCVideoRenderer.h"
 #import <QuartzCore/QuartzCore.h>
+#import "RTCVideoRenderer.h"
+#import "RTCVideoTrack.h"
 
-@interface VideoView () {
-    UIInterfaceOrientation _videoOrientation;
-    UIColor *_color;
-    
-    
-    RTCVideoTrack *_track;
-    RTCVideoRenderer *_renderer;
-}
-@property (nonatomic, retain) UIView<RTCVideoRenderView> *renderView;
-@property (nonatomic, retain) UIImageView *placeholderView;
+@interface VideoView ()
+
+@property (nonatomic, strong) RTCVideoTrack *track;
+@property (nonatomic, strong) RTCVideoRenderer *renderer;
+
+@property (nonatomic, strong) UIView<RTCVideoRenderView> *renderView;
+@property (nonatomic, strong) UIImageView *placeholderView;
+@property (nonatomic, strong) UILabel *loadingLabel;
+
 @end
 
 @implementation VideoView
-    UILabel *loadingLabel;
 
-#define VIDEO_WIDTH 320
-#define VIDEO_HEIGHT 470
+#pragma mark - Initialization
 
-static void init(VideoView *self) {
+- (id)initWithFrame:(CGRect)frame {
     
-    //** not sure if this frame size does anything...
-    UIView<RTCVideoRenderView> *renderView = [RTCVideoRenderer newRenderViewWithFrame:CGRectMake(200, 100, 240, 180)];
-    [self setRenderView:renderView];
-    UIImageView *placeholderView = [[UIImageView alloc] initWithFrame:[renderView frame]];
-    [self setPlaceholderView:placeholderView];
-    NSDictionary *views = NSDictionaryOfVariableBindings(renderView, placeholderView);
-    NSDictionary *metrics = @{@"VIDEO_WIDTH" : @(VIDEO_WIDTH), @"VIDEO_HEIGHT" : @(VIDEO_HEIGHT)};
-    
-    [placeholderView setTranslatesAutoresizingMaskIntoConstraints:NO];
-    [self addSubview:placeholderView];
-    [self addConstraint:[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:placeholderView attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-    [self addConstraint:[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:placeholderView attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
+    if (self = [super initWithFrame:frame]) {
+        setupRenderer(self);
+        [self setupInterface];
+    }
+    return self;
+}
 
+- (id)initWithCoder:(NSCoder *)aDecoder {
     
-    [renderView setTranslatesAutoresizingMaskIntoConstraints:NO];
-    [self addSubview:renderView];
-    [renderView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[renderView(VIDEO_WIDTH)]" options:0 metrics:metrics views:views]];
-    [renderView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[renderView(VIDEO_HEIGHT)]" options:0 metrics:metrics views:views]];
-    [self addConstraint:[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:renderView attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-    [self addConstraint:[NSLayoutConstraint constraintWithItem:self attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:renderView attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
-    
+    if (self = [super initWithCoder:aDecoder]) {
+        setupRenderer(self);
+        [self setupInterface];
+    }
+    return self;
+}
 
-    //** rounded corners of frame
-    // [[self layer] setCornerRadius:VIDEO_HEIGHT/2.0];
+#pragma mark - Interface Setup
+
+- (void)setupInterface {
+    
     [[self layer] setMasksToBounds:YES];
     [self setBackgroundColor:[UIColor darkGrayColor]];
-
     
-    //** hack in LOADING text...
-    loadingLabel = [[UILabel alloc] initWithFrame:CGRectMake(32, 32, 250, 35)];
+    self.placeholderView = [[UIImageView alloc] initWithFrame:self.renderView.frame];
+    [self.placeholderView setTranslatesAutoresizingMaskIntoConstraints:NO];
+    [self addSubview:self.placeholderView];
     
-    [loadingLabel setTextColor:[UIColor whiteColor]];
-    [loadingLabel setBackgroundColor:[UIColor darkGrayColor]];
-    [loadingLabel setFont:[UIFont fontWithName: @"Trebuchet MS" size: 18.0f]];
-    [loadingLabel setText:@"Loading... (tap to dismiss)"];
-    loadingLabel.center = CGPointMake(VIDEO_WIDTH/2, VIDEO_HEIGHT/2);
-    [self addSubview:loadingLabel];
+    [self addConstraint:[NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeCenterX
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:self.placeholderView
+                                                     attribute:NSLayoutAttributeCenterX
+                                                    multiplier:1
+                                                      constant:0]];
     
-    //** add tap gesture recognizer
-    UITapGestureRecognizer *recognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
-    recognizer.delegate = self;
+    [self addConstraint:[NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeCenterY
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:self.placeholderView
+                                                     attribute:NSLayoutAttributeCenterY
+                                                    multiplier:1
+                                                      constant:0]];
+    
+    self.loadingLabel = [[UILabel alloc] initWithFrame:CGRectMake(32,
+                                                                  32,
+                                                                  CGRectGetWidth(self.frame) - 32 * 2,
+                                                                  [UIFont systemFontOfSize:18.0f].lineHeight)];
+    self.loadingLabel.center = CGPointMake(CGRectGetWidth(self.frame) / 2,
+                                           CGRectGetHeight(self.frame) / 2);
+    self.loadingLabel.textColor = [UIColor whiteColor];
+    self.loadingLabel.textAlignment = NSTextAlignmentCenter;
+    self.loadingLabel.backgroundColor = [UIColor darkGrayColor];
+    self.loadingLabel.font = [UIFont systemFontOfSize:18.0f];
+    self.loadingLabel.text = @"Loading... (tap to dismiss)";
+    [self addSubview:self.loadingLabel];
+    
+    UITapGestureRecognizer *recognizer = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                                 action:@selector(handleTap:)];
     [self addGestureRecognizer:recognizer];
-
 }
 
+#pragma mark - Renderer Setup
 
-//******************************
-//******************************
-//**
-//**  TAP
-//**
-int once = 1; //disable
-//** handle tap
+static void setupRenderer(VideoView *self) {
+    
+    self.renderView = [RTCVideoRenderer newRenderViewWithFrame:CGRectMake(200, 100, 240, 180)];
+    [self.renderView setTranslatesAutoresizingMaskIntoConstraints:NO];
+    [self addSubview:self.renderView];
+    
+    NSDictionary *views = @{@"renderView": self.renderView};
+    NSDictionary *metrics = @{@"VIDEO_WIDTH" : @(CGRectGetWidth(self.frame)),
+                              @"VIDEO_HEIGHT" : @(CGRectGetHeight(self.frame))};
+    
+    [self.renderView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[renderView(VIDEO_WIDTH)]"
+                                                                            options:0
+                                                                            metrics:metrics
+                                                                              views:views]];
+    
+    [self.renderView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[renderView(VIDEO_HEIGHT)]"
+                                                                            options:0 metrics:metrics
+                                                                              views:views]];
+    
+    [self addConstraint:[NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeCenterX
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:self.renderView
+                                                     attribute:NSLayoutAttributeCenterX
+                                                    multiplier:1
+                                                      constant:0]];
+    
+    [self addConstraint:[NSLayoutConstraint constraintWithItem:self
+                                                     attribute:NSLayoutAttributeCenterY
+                                                     relatedBy:NSLayoutRelationEqual
+                                                        toItem:self.renderView
+                                                     attribute:NSLayoutAttributeCenterY
+                                                    multiplier:1
+                                                      constant:0]];
+}
+
+#pragma mark - UITapGestureRecognizer Selector
+
 - (void)handleTap:(UITapGestureRecognizer *)recognizer {
     
-    if (once) {
-        once = 0;
-        //** remove loading label
-        [loadingLabel removeFromSuperview];
-        return;
+    if (self.loadingLabel.superview) {
+        [self.loadingLabel removeFromSuperview];
     }
 }
 
-
-
-- (id)initWithFrame:(CGRect)frame
-{
-    self = [super initWithFrame:frame];
-    if (self) {
-        init(self);
-    }
-    return self;
-}
-
--(id)initWithCoder:(NSCoder *)aDecoder {
-    self = [super initWithCoder:aDecoder];
-    if (self) {
-        init(self);
-    }
-    return self;
-}
+#pragma mark - Placeholder Image
 
 -(UIImage *)placeholderImage {
     return [[self placeholderView] image];
@@ -124,41 +149,37 @@ int once = 1; //disable
     [[self placeholderView] setImage:placeholderImage];
 }
 
-- (UIInterfaceOrientation)videoOrientation {
-    return _videoOrientation;
-}
-
--(CGSize)intrinsicContentSize {
-    // We add a bit of a buffer to keep the video from showing out of our border
-    CGFloat borderSize = 0; //[[self layer] borderWidth];
-    return CGSizeMake(VIDEO_HEIGHT + borderSize - 1, VIDEO_HEIGHT + borderSize - 1);
-}
+#pragma mark - Video Orientation
 
 - (void)setVideoOrientation:(UIInterfaceOrientation)videoOrientation {
-    if (_videoOrientation != videoOrientation) {
-        _videoOrientation = videoOrientation;
-                
-        CGFloat angle;
-        switch (videoOrientation) {
-            case UIInterfaceOrientationPortrait:
-                angle = M_PI_2;
-                break;
-            case UIInterfaceOrientationPortraitUpsideDown:
-                angle = -M_PI_2;
-                break;
-            case UIInterfaceOrientationLandscapeLeft:
-                angle = M_PI;
-                break;
-            case UIInterfaceOrientationLandscapeRight:
-                angle = 0;
-                break;
-        }
-        // The video comes in mirrored. That is fine for the local video, but the remote video should be put back to original
-        CGAffineTransform xform = CGAffineTransformMakeScale([self isRemote] ? -1 : 1, 1);
-        xform = CGAffineTransformRotate(xform, angle);
-        [[self renderView] setTransform:xform];
+    
+    if (_videoOrientation == videoOrientation) { return; }
+    
+    _videoOrientation = videoOrientation;
+    
+    CGFloat angle;
+    switch (videoOrientation) {
+        case UIInterfaceOrientationPortrait:
+            angle = M_PI_2;
+            break;
+        case UIInterfaceOrientationPortraitUpsideDown:
+            angle = -M_PI_2;
+            break;
+        case UIInterfaceOrientationLandscapeLeft:
+            angle = M_PI;
+            break;
+        case UIInterfaceOrientationLandscapeRight:
+            angle = 0;
+            break;
     }
+    
+    // The video comes in mirrored. That is fine for the local video, but the remote video should be put back to original
+    CGAffineTransform xform = CGAffineTransformMakeScale([self isRemote] ? -1 : 1, 1);
+    xform = CGAffineTransformRotate(xform, angle);
+    [[self renderView] setTransform:xform];
 }
+
+#pragma mark - Rendered Interface
 
 - (void)renderVideoTrackInterface:(RTCVideoTrack *)videoTrack {
     [self stop:nil];
@@ -178,62 +199,13 @@ int once = 1; //disable
     [self setVideoOrientation:UIInterfaceOrientationLandscapeLeft];
 }
 
-#if 0
-- (void)orientationChanged:(NSNotification *)notification
-{
-        UIDeviceOrientation deviceOrientation = [UIDevice currentDevice].orientation;
-        CGRect rect = CGRectMake(0, 0, [[UIScreen mainScreen] bounds].size.height, [[UIScreen mainScreen] bounds].size.width);
-        
-        
-        switch (deviceOrientation) {
-            case 1:
-                [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationPortrait animated:NO];
-                [UIView beginAnimations:nil context:NULL];
-                [UIView setAnimationDuration:0.1];
-                self.view.transform = CGAffineTransformMakeRotation(0);
-                self.view.bounds = [[UIScreen mainScreen] bounds];
-                [UIView commitAnimations];
-                break;
-            case 2:
-                [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationPortraitUpsideDown animated:NO];
-                [UIView beginAnimations:nil context:NULL];
-                [UIView setAnimationDuration:0.1];
-                self.view.transform = CGAffineTransformMakeRotation(-M_PI);
-                self.view.bounds = [[UIScreen mainScreen] bounds];
-                [UIView commitAnimations];
-                break;
-            case 3:
-                [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationLandscapeRight animated:NO];
-                //rect = CGRectMake(0, 0, [[UIScreen mainScreen] bounds].size.height, [[UIScreen mainScreen] bounds].size.width);
-                [UIView beginAnimations:nil context:NULL];
-                [UIView setAnimationDuration:0.1];
-                self.view.transform = CGAffineTransformMakeRotation(M_PI_2);
-                self.view.bounds = rect;
-                [UIView commitAnimations];
-                break;
-            case 4:
-                [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationLandscapeLeft animated:NO];
-                [UIView beginAnimations:nil context:NULL];
-                [UIView setAnimationDuration:0.1];
-                //rect = CGRectMake(0, 0, [[UIScreen mainScreen] bounds].size.height, [[UIScreen mainScreen] bounds].size.width);
-                self.view.transform = CGAffineTransformMakeRotation(-M_PI_2);
-                self.view.bounds = rect;
-                [UIView commitAnimations];
-                break;
-                
-            default:
-                break;
-        }
-}
-#endif
-      
-      
-      
--(void)pause:(id)sender {
+#pragma mark - Controlls
+
+- (void)pause:(id)sender {
     [_renderer stop];
 }
 
--(void)resume:(id)sender {
+- (void)resume:(id)sender {
     [_renderer start];
 }
 
@@ -242,27 +214,4 @@ int once = 1; //disable
     [_renderer stop];
 }
 
-#if 0
-- (UIImage*)snapshot {
-    UIImage *unorientedSnapshot = [[self renderView] snapshot];
-    UIImage *snapshot = nil;
-    
-    // apply view xform into snapshot. we do this rather than keep the orientation as metadata in UIImage because some parts of UIKit don't manage to respect the metadata properly (UIImagePNGRepresentation, UIButton's auto-darkening on press)
-    CGAffineTransform xform = [[self renderView] transform];
-    if (!CGAffineTransformEqualToTransform(xform, CGAffineTransformIdentity)) {
-        CGSize xformedSize = CGRectApplyAffineTransform([unorientedSnapshot us_bounds], xform).size;
-        UIGraphicsBeginImageContext(xformedSize);
-        CGContextRef ctx = UIGraphicsGetCurrentContext();
-        CGContextConcatCTM(ctx, xform);
-        [unorientedSnapshot drawInRect:CGContextGetClipBoundingBox(ctx)];
-        snapshot = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-    } else {
-        snapshot = unorientedSnapshot;
-    }
-    
-    return snapshot;
-}
-
-#endif
 @end

@@ -3,26 +3,28 @@
 //
 /*
  *
- * Last updated by: Gregg Ganley
- * Nov 2013
+ * Last updated by: Josip Bernat
+ * May 2014
  *
  */
 
 #import <UIKit/UIKit.h>
 #import "RTCVideoTrack.h"
 
+@class RTCVideoTrack;
+
 @interface VideoView : UIView
 
-@property (nonatomic) UIInterfaceOrientation videoOrientation;
+@property (nonatomic, readwrite) UIInterfaceOrientation videoOrientation;
 @property (nonatomic, strong) UIImage *placeholderImage;
-@property (nonatomic) BOOL isRemote;
+@property (nonatomic, readonly) BOOL isRemote;
 
+#pragma mark - Rendered Interface
 - (void)renderVideoTrackInterface:(RTCVideoTrack *)track;
-- (void)setVideoOrientation:(UIInterfaceOrientation)videoOrientation;
 
+#pragma mark - Controlls
 - (void)pause:(id)sender;
 - (void)resume:(id)sender;
 - (void)stop:(id)sender;
-- (UIImage*)snapshot;
 
 @end
