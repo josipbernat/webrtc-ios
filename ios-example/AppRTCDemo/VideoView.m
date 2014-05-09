@@ -179,26 +179,6 @@ static void setupRenderer(VideoView *self) {
     [[self renderView] setTransform:xform];
 }
 
-#pragma mark - Rendered Interface
-
-- (void)renderVideoTrackInterface:(RTCVideoTrack *)videoTrack {
-    [self stop:nil];
-    
-    _track = videoTrack;
-    
-    if (_track) {
-        if (!_renderer) {
-            _renderer = [[RTCVideoRenderer alloc] initWithRenderView:[self renderView]];
-        }
-        [_track addRenderer:_renderer];
-        [self resume:self];
-    }
-    //** flip the video over
-    [self setVideoOrientation:UIInterfaceOrientationLandscapeLeft];
-    [self setVideoOrientation:UIInterfaceOrientationPortrait];
-    [self setVideoOrientation:UIInterfaceOrientationLandscapeLeft];
-}
-
 #pragma mark - Controlls
 
 - (void)pause:(id)sender {
@@ -212,6 +192,24 @@ static void setupRenderer(VideoView *self) {
 - (void)stop:(id)sender {
     [_track removeRenderer:_renderer];
     [_renderer stop];
+}
+
+#pragma mark - CSVideoRendererProtocol
+
+- (void)renderVideoTrackInterface:(RTCVideoTrack *)videoTrack {
+    [self stop:nil];
+    
+    _track = videoTrack;
+    
+    if (_track) {
+        if (!_renderer) {
+            _renderer = [[RTCVideoRenderer alloc] initWithRenderView:[self renderView]];
+        }
+        [_track addRenderer:_renderer];
+        [self resume:self];
+    }
+    
+    [self setVideoOrientation:UIInterfaceOrientationLandscapeLeft];
 }
 
 @end

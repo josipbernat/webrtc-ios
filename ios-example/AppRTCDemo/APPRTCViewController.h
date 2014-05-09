@@ -27,14 +27,13 @@
 
 /*
  *
- * Last updated by: Gregg Ganley
- * Nov 2013
+ * Last updated by: Josip Bernat
+ * May 2014
  *
  */
 
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
-//#import <AssetsLibrary/AssetsLibrary.h>
 #import "RTCVideoRenderer.h"
 #import "VideoView.h"
 
@@ -44,11 +43,6 @@
 @property (weak, nonatomic) IBOutlet UITextField *textField;
 @property (weak, nonatomic) IBOutlet UITextView *textInstructions;
 @property (weak, nonatomic) IBOutlet UITextView *textOutput;
-
-@property (strong, nonatomic) AVCaptureSession *captureSession;
-@property (strong, nonatomic) AVCaptureDeviceInput *videoInput;
-@property (strong, nonatomic) AVCaptureDeviceInput *audioInput;
-@property (strong, nonatomic) AVCaptureStillImageOutput *stillImageOutput;
 
 @property (weak, nonatomic) IBOutlet UIButton *captureButton;
 @property (weak, nonatomic) IBOutlet UISegmentedControl *modeControl;

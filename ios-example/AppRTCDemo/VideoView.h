@@ -9,18 +9,13 @@
  */
 
 #import <UIKit/UIKit.h>
-#import "RTCVideoTrack.h"
+#import "CSVideoRendererProtocol.h"
 
-@class RTCVideoTrack;
-
-@interface VideoView : UIView
+@interface VideoView : UIView <CSVideoRendererProtocol>
 
 @property (nonatomic, readwrite) UIInterfaceOrientation videoOrientation;
 @property (nonatomic, strong) UIImage *placeholderImage;
 @property (nonatomic, readonly) BOOL isRemote;
-
-#pragma mark - Rendered Interface
-- (void)renderVideoTrackInterface:(RTCVideoTrack *)track;
 
 #pragma mark - Controlls
 - (void)pause:(id)sender;
