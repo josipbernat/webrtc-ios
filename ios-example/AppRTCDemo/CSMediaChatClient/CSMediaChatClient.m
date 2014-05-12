@@ -49,20 +49,20 @@
     if (self = [super init]) {
         
         self.shouldReceiveAudio = YES;
-        self.shouldReceiveVideo = NO;
+        self.shouldReceiveVideo = YES;
         self.shouldUseFrontCamera = YES;
         
         [RTCPeerConnectionFactory initializeSSL];
         
-//        __weak id this = self;
-//        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
-//                                                          object:nil
-//                                                           queue:nil
-//                                                      usingBlock:^(NSNotification *note) {
-//                                                          
-//                                                          __strong CSMediaChatClient *strongThis = this;
-//                                                          [strongThis disconnect];
-//                                                      }];
+        __weak id this = self;
+        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
+                                                          object:nil
+                                                           queue:nil
+                                                      usingBlock:^(NSNotification *note) {
+                                                          
+                                                          __strong CSMediaChatClient *strongThis = this;
+                                                          [strongThis disconnect];
+                                                      }];
     }
     return self;
 }
@@ -143,7 +143,7 @@
 
     return [[RTCMediaConstraints alloc] initWithMandatoryConstraints:[self audioVideoPairs]
                                                  optionalConstraints:@[[[RTCPair alloc] initWithKey:@"internalSctpDataChannels" value:@"true"],
-                                                                       [[RTCPair alloc] initWithKey:@"DtlsSrtpKeyAgreement" value:@"false"]]];
+                                                                       [[RTCPair alloc] initWithKey:@"DtlsSrtpKeyAgreement" value:@"true"]]];
 }
 
 - (NSArray *)audioVideoPairs {

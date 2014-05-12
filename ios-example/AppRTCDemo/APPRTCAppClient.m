@@ -64,8 +64,11 @@
 - (id)init {
     
     if (self = [super init]) {
+        
         self.sendingSet = [[NSMutableSet alloc] init];
+        
         self.operationQueue = [[NSOperationQueue alloc] init];
+        self.operationQueue.maxConcurrentOperationCount = 1;
     }
     return self;
 }
@@ -226,18 +229,22 @@
 
 - (void)sendData:(NSData *)data {
 
-    @synchronized(self) {
+    __weak id this = self;
+    NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:^{
         
-        [self logMessage:@"Send message"];
-        [self.sendingSet addObject:[data copy]];
+        __strong APPRTCAppClient *strongThis = this;
+        [strongThis logMessage:@"Send message"];
+        [strongThis.sendingSet addObject:data];
         
-        [self requestQueueDrainInBackground];
-    }
+        [strongThis requestQueueDrainInBackground];
+    }];
+    [self.operationQueue addOperation:operation];
 }
 
 - (void)requestQueueDrainInBackground {
 
     @synchronized(self) {
+
         __weak id this = self;
         void (^blockOperation)() = ^(){
             
@@ -247,7 +254,7 @@
             NSArray *sendQueue = [NSArray arrayWithArray:[strongThis.sendingSet allObjects]];
             for (NSData *data in sendQueue) {
                 NSString *url = [NSString stringWithFormat:@"%@/%@", self.baseURL, self.postMessageUrl];
-                [self sendData:data withUrl:url];
+                [strongThis sendData:data withUrl:url];
             }
             
             [strongThis.sendingSet minusSet:[NSSet setWithArray:sendQueue]];

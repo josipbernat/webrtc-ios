@@ -38,3 +38,9 @@
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+
+//#ifndef __OPTIMIZE__
+//#    define NSLog(...) {}
+//#else
+//#    define NSLog(...) {}
+//#endif
