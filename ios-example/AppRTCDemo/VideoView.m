@@ -153,14 +153,14 @@ static void setupRenderer(VideoView *self) {
 
 - (void)setVideoOrientation:(UIInterfaceOrientation)videoOrientation {
     
-    if (_videoOrientation == videoOrientation) { return; }
+//    if (_videoOrientation == videoOrientation) { return; }
     
     _videoOrientation = videoOrientation;
     
-    CGFloat angle;
+    CGFloat angle = 0.0;
     switch (videoOrientation) {
         case UIInterfaceOrientationPortrait:
-            angle = M_PI_2;
+            angle = M_PI;
             break;
         case UIInterfaceOrientationPortraitUpsideDown:
             angle = -M_PI_2;
@@ -174,7 +174,7 @@ static void setupRenderer(VideoView *self) {
     }
     
     // The video comes in mirrored. That is fine for the local video, but the remote video should be put back to original
-    CGAffineTransform xform = CGAffineTransformMakeScale([self isRemote] ? -1 : 1, 1);
+    CGAffineTransform xform = CGAffineTransformMakeScale(1, 1);
     xform = CGAffineTransformRotate(xform, angle);
     [[self renderView] setTransform:xform];
 }
@@ -209,7 +209,7 @@ static void setupRenderer(VideoView *self) {
         [self resume:self];
     }
     
-    [self setVideoOrientation:UIInterfaceOrientationLandscapeLeft];
+    [self setVideoOrientation:UIInterfaceOrientationPortrait];
 }
 
 @end

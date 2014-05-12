@@ -108,8 +108,9 @@
     
     [self.indicatorView startAnimating];
     
-    __weak id this = self;
-    [self.connectionHandler connectToUrl:[NSURL URLWithString:[NSString stringWithFormat:@"apprtc://apprtc.appspot.com/?r=%@", room]]
+    __weak id this = self;    
+    NSString *stringURL = [NSString stringWithFormat:@"apprtc://apprtc.appspot.com/?r=%@", room]; //[NSString stringWithFormat:@"http://cdn.peerjs.com/%@", room]
+    [self.connectionHandler connectToUrl:[NSURL URLWithString:stringURL]
                        completionHandler:^(BOOL successfull) {
                            
                            __strong APPRTCViewController *strongThis = this;

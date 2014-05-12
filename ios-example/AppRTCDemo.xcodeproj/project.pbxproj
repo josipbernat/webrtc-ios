@@ -10,6 +10,7 @@
 		186CA7591836D3DB00CE8212 /* VideoView.m in Sources */ = {isa = PBXBuildFile; fileRef = 186CA7581836D3DB00CE8212 /* VideoView.m */; };
 		1FB0E818191D16D10035A5B7 /* CSMediaChatClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FB0E816191D16D10035A5B7 /* CSMediaChatClient.m */; };
 		1FB0E81B191D19490035A5B7 /* NSString+Html.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FB0E81A191D19490035A5B7 /* NSString+Html.m */; };
+		1FB0E81F191D406D0035A5B7 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FB0E81E191D406D0035A5B7 /* Default-568h@2x.png */; };
 		29334CB717C1E49200062CBB /* libcrssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 29334CB117C1E49200062CBB /* libcrssl.a */; };
 		29334CB817C1E49200062CBB /* libicudata.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 29334CB217C1E49200062CBB /* libicudata.a */; };
 		29334CB917C1E49200062CBB /* libicui18n.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 29334CB317C1E49200062CBB /* libicui18n.a */; };
@@ -104,6 +105,7 @@
 		1FB0E817191D16D10035A5B7 /* CSVideoRendererProtocol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSVideoRendererProtocol.h; sourceTree = "<group>"; };
 		1FB0E819191D19490035A5B7 /* NSString+Html.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Html.h"; sourceTree = "<group>"; };
 		1FB0E81A191D19490035A5B7 /* NSString+Html.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+Html.m"; sourceTree = "<group>"; };
+		1FB0E81E191D406D0035A5B7 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
 		29334CB117C1E49200062CBB /* libcrssl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrssl.a; path = libs/libcrssl.a; sourceTree = "<group>"; };
 		29334CB217C1E49200062CBB /* libicudata.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libicudata.a; path = libs/libicudata.a; sourceTree = "<group>"; };
 		29334CB317C1E49200062CBB /* libicui18n.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libicui18n.a; path = libs/libicui18n.a; sourceTree = "<group>"; };
@@ -417,6 +419,7 @@
 		4FBCC0421728E929004C8C0B = {
 			isa = PBXGroup;
 			children = (
+				1FB0E81E191D406D0035A5B7 /* Default-568h@2x.png */,
 				FE2A3868182D989D00E10046 /* QuartzCore.framework */,
 				FE2A3866182D981300E10046 /* OpenGLES.framework */,
 				2945DB3417C21D60004BEFD1 /* libsqlite3.dylib */,
@@ -512,7 +515,7 @@
 			isa = PBXProject;
 			attributes = {
 				CLASSPREFIX = RTC;
-				LastUpgradeCheck = 0460;
+				LastUpgradeCheck = 0510;
 				ORGANIZATIONNAME = Google;
 			};
 			buildConfigurationList = 4FBCC0461728E929004C8C0B /* Build configuration list for PBXProject "AppRTCDemo" */;
@@ -540,6 +543,7 @@
 				4FEE3E531743C94D0005814A /* ios_channel.html in Resources */,
 				4FBCC0611728E929004C8C0B /* Default.png in Resources */,
 				4FBCC06B1728E929004C8C0B /* APPRTCViewController.xib in Resources */,
+				1FB0E81F191D406D0035A5B7 /* Default-568h@2x.png in Resources */,
 				4FEE3EB71746A3810005814A /* Icon.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -636,7 +640,6 @@
 		4FBCC06F1728E929004C8C0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_UNIVERSAL_IPHONE_OS)";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_CXX_LIBRARY = "compiler-default";
 				CODE_SIGN_IDENTITY = "iPhone Developer: Josip Bernat (M5L7AVSP76)";
@@ -698,7 +701,6 @@
 		4FBCC0701728E929004C8C0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_UNIVERSAL_IPHONE_OS)";
 				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_CXX_LIBRARY = "compiler-default";
 				GCC_CW_ASM_SYNTAX = NO;

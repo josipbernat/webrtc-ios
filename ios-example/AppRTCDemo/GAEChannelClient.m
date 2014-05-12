@@ -27,14 +27,12 @@
 
 /*
  *
- * Last updated by: Gregg Ganley
- * Nov 2013
+ * Last updated by: Josip Bernat
+ * May 2014
  *
  */
 
 #import "GAEChannelClient.h"
-
-#import "RTCPeerConnectionFactory.h"
 
 @interface GAEChannelClient ()
 
@@ -45,76 +43,85 @@
 
 @implementation GAEChannelClient
 
-@synthesize delegate = _delegate;
-@synthesize webView = _webView;
-
-- (id)initWithToken:(NSString *)token delegate:(id<GAEMessageHandler>)delegate {
-  self = [super init];
-  [self displayLogMessage:@"*** HERE IN initWithToken"];
-  if (self) {
-    _webView = [[UIWebView alloc] init];
-    _webView.delegate = self;
-    _delegate = delegate;
-    NSString *htmlPath =
-        [[NSBundle mainBundle] pathForResource:@"ios_channel" ofType:@"html"];
-    NSURL *htmlUrl = [NSURL fileURLWithPath:htmlPath];
-    NSString *path = [NSString stringWithFormat:@"%@?token=%@",
-                      [htmlUrl absoluteString],
-                      token];
-
-    [_webView
-        loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:path]]];
-  }
-  return self;
-}
+#pragma mark - Memory Management
 
 - (void)dealloc {
-  _webView.delegate = nil;
-  [_webView stopLoading];
+    _webView.delegate = nil;
+    [_webView stopLoading];
+}
+
+#pragma mark - Initialization
+
+- (id)initWithToken:(NSString *)token delegate:(id<GAEMessageHandler>)delegate {
+  
+  if (self = [super init]) {
+  
+      self.webView = [[UIWebView alloc] init];
+      self.webView.delegate = self;
+      self.delegate = delegate;
+      
+      NSString *htmlPath = [[NSBundle mainBundle] pathForResource:@"ios_channel" ofType:@"html"];
+      NSURL *htmlUrl = [NSURL fileURLWithPath:htmlPath];
+      NSString *path = [NSString stringWithFormat:@"%@?token=%@", [htmlUrl absoluteString], token];
+
+      [_webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:path]]];
+  }
+    
+  return self;
 }
 
 #pragma mark - UIWebViewDelegate method
 
-- (BOOL)webView:(UIWebView *)webView
-    shouldStartLoadWithRequest:(NSURLRequest *)request
-                navigationType:(UIWebViewNavigationType)navigationType {
-  [self displayLogMessage:@"*** HERE IN GAE webview"];
-  NSString *scheme = [request.URL scheme];
-  if ([scheme compare:@"js-frame"] != NSOrderedSame) {
-    return YES;
-  }
-  NSString *resourceSpecifier = [request.URL resourceSpecifier];
-  NSRange range = [resourceSpecifier rangeOfString:@":"];
-  NSString *method;
-  NSString *message;
-  if (range.length == 0 && range.location == NSNotFound) {
-    method = resourceSpecifier;
-  } else {
-    method = [resourceSpecifier substringToIndex:range.location];
-    message = [resourceSpecifier substringFromIndex:range.location + 1];
-  }
-  dispatch_async(dispatch_get_main_queue(), ^(void) {
-    if ([method compare:@"onopen"] == NSOrderedSame) {
-      [self.delegate onOpen];
-    } else if ([method compare:@"onmessage"] == NSOrderedSame) {
-      NSLog(@"here in OnMessage");
-      [self.delegate onMessage:message];
-    } else if ([method compare:@"onclose"] == NSOrderedSame) {
-      [self.delegate onClose];
-    } else if ([method compare:@"onerror"] == NSOrderedSame) {
-      // TODO(hughv): Get error.
-      int code = -1;
-      NSString *description = message;
-      [self.delegate onError:code withDescription:description];
-    } else {
-      NSAssert(NO, @"Invalid message sent from UIWebView: %@",
-               resourceSpecifier);
+- (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
+
+    NSString *scheme = [request.URL scheme];
+    if (![scheme isEqualToString:@"js-frame"]) {
+        return YES;
     }
-  });
-  return YES;
+    NSString *resourceSpecifier = [request.URL resourceSpecifier];
+    NSRange range = [resourceSpecifier rangeOfString:@":"];
+    NSString *method = nil;
+    NSString *message = nil;
+    
+    if (range.length == 0 && range.location == NSNotFound) {
+        method = resourceSpecifier;
+    }
+    else {
+        method = [resourceSpecifier substringToIndex:range.location];
+        message = [resourceSpecifier substringFromIndex:range.location + 1];
+    }
+    
+    if ([method isEqualToString:@"onopen"]) {
+        
+        if ([(NSObject *)_delegate respondsToSelector:@selector(onOpen)]) {
+            [self.delegate onOpen];
+        }
+    }
+    else if ([method isEqualToString:@"onmessage"]) {
+        
+        if ([(NSObject *)_delegate respondsToSelector:@selector(onMessage:)]) {
+            [self.delegate onMessage:message];
+        }
+    }
+    else if ([method isEqualToString:@"onclose"]) {
+        
+        if ([(NSObject *)_delegate respondsToSelector:@selector(onClose)]) {
+            [self.delegate onClose];
+        }
+    }
+    else if ([method isEqualToString:@"onerror"]) {
+        // TODO(hughv): Get error.
+        if ([(NSObject *)_delegate respondsToSelector:@selector(onError:withDescription:)]) {
+            [self.delegate onError:-1
+                   withDescription:message];
+        }
+    }
+    else {
+        NSAssert(NO, @"Invalid message sent from UIWebView: %@",
+                 resourceSpecifier);
+    }
+    
+    return YES;
 }
 
-- (void)displayLogMessage:(NSString *)message {
-  NSLog(@"%@", message);
-}
 @end

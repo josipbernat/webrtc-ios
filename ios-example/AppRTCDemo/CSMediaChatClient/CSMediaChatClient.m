@@ -31,7 +31,6 @@
 @property (nonatomic, strong) RTCPeerConnection *peerConnection;
 @property (nonatomic, strong) NSMutableArray *queuedRemoteCandidates;
 @property (nonatomic, copy) CSBoolBlock loginCompletionHandler;
-@property (nonatomic, strong) RTCMediaStream *mediaStream;
 
 @end
 
@@ -57,7 +56,7 @@
         
         self.shouldReceiveAudio = YES;
         self.shouldReceiveVideo = YES;
-        self.shouldUseFrontCamera = NO;
+        self.shouldUseFrontCamera = YES;
         
         [RTCPeerConnectionFactory initializeSSL];
         
@@ -97,7 +96,7 @@
     }
     else {
         for (AVCaptureDevice *captureDevice in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo] ) {
-            if (!cameraID || captureDevice.position == AVCaptureDevicePositionFront) {
+            if (captureDevice.position == AVCaptureDevicePositionFront) {
                 cameraID = [captureDevice localizedName];
                 break;
             }
@@ -113,8 +112,6 @@
     }
 
     [self.peerConnection addStream:mediaStream constraints:[self mediaConstraints]];
-
-    self.mediaStream = mediaStream;
 }
 
 #pragma mark - RTCICECandidate Encoding
@@ -167,23 +164,15 @@
 
     [self.client sendData:[@"{\"type\": \"bye\"}" dataUsingEncoding:NSUTF8StringEncoding]];
     
-    for (id videoTrack in self.mediaStream.videoTracks) {
-        [self.mediaStream removeVideoTrack:videoTrack];
-    }
-    
-    for (id audioTrack in self.mediaStream.audioTracks) {
-        [self.mediaStream removeAudioTrack:audioTrack];
-    }
-    
     [self.peerConnection close];
     self.peerConnection = nil;
-    
-    [RTCPeerConnectionFactory deinitializeSSL];
     
     self.peerConnectionFactory = nil;
     self.client.ICEServerDelegate = nil;
     self.client.messageHandler = nil;
     self.client = nil;
+    
+    [RTCPeerConnectionFactory deinitializeSSL];
 }
 
 - (void)drainRemoteCandidates {
@@ -255,6 +244,10 @@
             self.loginCompletionHandler(NO);
             self.loginCompletionHandler = nil;
         });
+    }
+    else if (newState == RTCICEConnectionClosed) {
+        NSLog(@"ICE connection closed");
+        [self disconnect];
     }
     NSLog(@"** iceConnectionChanged: %d **", newState);
 }
@@ -377,19 +370,14 @@ didCreateSessionDescription:(RTCSessionDescription *)sdp
 didSetSessionDescriptionWithError:(NSError *)error {
 
     if (error) {
-        NSAssert(NO, error.description);
+        NSLog(@"%@", error.description);
+//        NSAssert(NO, error.description);
         return;
     }
     
-    dispatch_async(dispatch_get_main_queue(), ^(void) {
-        if (self.peerConnection.remoteDescription) {
-            [self drainRemoteCandidates];
-        }
-        else {
-            NSLog(@"*** self.peerConnection.remoteDescription is NULL");
-        }
-    });
-
+    if (self.peerConnection.remoteDescription) {
+        [self drainRemoteCandidates];
+    }
 }
 
 @end
