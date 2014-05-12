@@ -36,16 +36,10 @@
 
 @implementation CSMediaChatClient
 
-#pragma mark - Shared Instance
+#pragma mark - Logging
 
-+ (instancetype)sharedInstance {
-
-    static CSMediaChatClient *instance = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        instance = [[self alloc] init];
-    });
-    return instance;
+- (void)logMessage:(NSString *)message {
+    NSLog(@"CSMediaChatClient - %@", message);
 }
 
 #pragma mark - Initialization
@@ -55,20 +49,20 @@
     if (self = [super init]) {
         
         self.shouldReceiveAudio = YES;
-        self.shouldReceiveVideo = YES;
+        self.shouldReceiveVideo = NO;
         self.shouldUseFrontCamera = YES;
         
         [RTCPeerConnectionFactory initializeSSL];
         
-        __weak id this = self;
-        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
-                                                          object:nil
-                                                           queue:nil
-                                                      usingBlock:^(NSNotification *note) {
-                                                          
-                                                          __strong CSMediaChatClient *strongThis = this;
-                                                          [strongThis disconnect];
-                                                      }];
+//        __weak id this = self;
+//        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification
+//                                                          object:nil
+//                                                           queue:nil
+//                                                      usingBlock:^(NSNotification *note) {
+//                                                          
+//                                                          __strong CSMediaChatClient *strongThis = this;
+//                                                          [strongThis disconnect];
+//                                                      }];
     }
     return self;
 }
@@ -76,6 +70,8 @@
 #pragma mark - Configuration
 
 - (void)configureConnectionForServers:(NSArray *)servers {
+    
+    [self logMessage:[NSString stringWithFormat:@"configureConnectionForServers: %d", servers.count]];
     
     self.queuedRemoteCandidates = [[NSMutableArray alloc] init];
     self.peerConnectionFactory = [[RTCPeerConnectionFactory alloc] init];
@@ -86,8 +82,19 @@
 
 - (void)configureDevices {
     
+    [self logMessage:@"configureDevices"];
+    
     RTCMediaStream *mediaStream = [self.peerConnectionFactory mediaStreamWithLabel:@"ARDAMS"];
-    [mediaStream addAudioTrack:[self.peerConnectionFactory audioTrackWithID:@"ARDAMSa0"]];
+    
+    if (self.shouldReceiveAudio) {
+        [mediaStream addAudioTrack:[self.peerConnectionFactory audioTrackWithID:@"ARDAMSa0"]];
+    }
+
+    if (!self.shouldReceiveVideo) {
+        
+        [self.peerConnection addStream:mediaStream constraints:[self mediaConstraints]];
+        return;
+    }
     
     NSString *cameraID = nil;
     if (!self.shouldUseFrontCamera) {
@@ -123,6 +130,8 @@
                            @"id": candidate.sdpMid,
                            @"candidate": candidate.sdp};
     
+    [self logMessage:[NSString stringWithFormat:@"encodeICECandidate: %@", json]];
+    
     return [NSJSONSerialization dataWithJSONObject:json
                                            options:0
                                              error:nil];
@@ -134,7 +143,7 @@
 
     return [[RTCMediaConstraints alloc] initWithMandatoryConstraints:[self audioVideoPairs]
                                                  optionalConstraints:@[[[RTCPair alloc] initWithKey:@"internalSctpDataChannels" value:@"true"],
-                                                                       [[RTCPair alloc] initWithKey:@"DtlsSrtpKeyAgreement" value:@"true"]]];
+                                                                       [[RTCPair alloc] initWithKey:@"DtlsSrtpKeyAgreement" value:@"false"]]];
 }
 
 - (NSArray *)audioVideoPairs {
@@ -162,6 +171,8 @@
 
 - (void)disconnect {
 
+    [self logMessage:@"disconnect"];
+    
     [self.client sendData:[@"{\"type\": \"bye\"}" dataUsingEncoding:NSUTF8StringEncoding]];
     
     [self.peerConnection close];
@@ -177,6 +188,8 @@
 
 - (void)drainRemoteCandidates {
 
+    [self logMessage:@"drainRemoteCandidates"];
+    
     for (RTCICECandidate *candidate in self.queuedRemoteCandidates) {
         [self.peerConnection addICECandidate:candidate];
     }
@@ -188,12 +201,13 @@
 
 - (void)peerConnectionOnError:(RTCPeerConnection *)peerConnection {
 
+    [self logMessage:@"peerConnectionOnError"];
 }
 
 - (void)peerConnection:(RTCPeerConnection *)peerConnection
  signalingStateChanged:(RTCSignalingState)stateChanged {
 
-    NSLog(@"** signalingStateChanged: %d **", stateChanged);
+    [self logMessage:[NSString stringWithFormat:@"signalingStateChanged: %d", stateChanged]];
 }
 
 - (void)peerConnection:(RTCPeerConnection *)peerConnection
@@ -212,7 +226,8 @@
         return;
     }
     
-    NSLog(@"** STREAM ADDED **");
+    [self logMessage:@"stream added"];
+    
     [[self videoView] renderVideoTrackInterface:[stream.videoTracks objectAtIndex:0]];
 }
 
@@ -224,11 +239,14 @@
 
 - (void)peerConnectionOnRenegotiationNeeded:(RTCPeerConnection *)peerConnection {
 
+    [self logMessage:@"peerConnectionOnRenegotiationNeeded"];
 }
 
 - (void)peerConnection:(RTCPeerConnection *)peerConnection
   iceConnectionChanged:(RTCICEConnectionState)newState {
 
+    [self logMessage:[NSString stringWithFormat:@"iceConnectionChanged: %d", newState]];
+    
     if (newState == RTCICEConnectionConnected &&
         self.loginCompletionHandler) {
         
@@ -246,16 +264,15 @@
         });
     }
     else if (newState == RTCICEConnectionClosed) {
-        NSLog(@"ICE connection closed");
-        [self disconnect];
+        [self logMessage:@"ICE connection closed"];
+//        [self disconnect];
     }
-    NSLog(@"** iceConnectionChanged: %d **", newState);
 }
 
 - (void)peerConnection:(RTCPeerConnection *)peerConnection
    iceGatheringChanged:(RTCICEGatheringState)newState {
 
-    NSLog(@"** iceGatheringChanged: %d **", newState);
+    [self logMessage:[NSString stringWithFormat:@"iceGatheringChanged: %d", newState]];
 }
 
 - (void)peerConnection:(RTCPeerConnection *)peerConnection
@@ -297,6 +314,8 @@
         return;
     }
     
+    [self logMessage:[NSString stringWithFormat:@"onMessage: %@", objects]];
+    
     NSString *value = objects[@"type"];
     if ([value compare:@"candidate"] == NSOrderedSame) {
     
@@ -335,7 +354,7 @@
 - (void)onError:(int)code withDescription:(NSString *)description {
 
     NSLog(@"Error: %@", description);
-    [self disconnect];
+//    [self disconnect];
 }
 
 #pragma mark - RTCSessionDescriptonDelegate
@@ -349,7 +368,8 @@ didCreateSessionDescription:(RTCSessionDescription *)sdp
         return;
     }
     
-    NSLog(@"Session state: %@", sdp.type);
+    [self logMessage:[NSString stringWithFormat:@"didCreateSessionDescription with type: %@", sdp.type]];
+
     RTCSessionDescription * sessionDescription = [[RTCSessionDescription alloc] initWithType:sdp.type
                                                                                          sdp:[NSString preferISAC:sdp.description]];
     
@@ -375,8 +395,13 @@ didSetSessionDescriptionWithError:(NSError *)error {
         return;
     }
     
+    [self logMessage:@"didSetSessionDescriptionWithError"];
+    
     if (self.peerConnection.remoteDescription) {
         [self drainRemoteCandidates];
+    }
+    else {
+        [self logMessage:@"self.peerConnection is nil"];
     }
 }
 

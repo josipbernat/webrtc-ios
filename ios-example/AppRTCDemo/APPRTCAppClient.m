@@ -27,8 +27,8 @@
 
 /*
  *
- * Last updated by: Gregg Ganley
- * Nov 2013
+ * Last updated by: Josip Bernat
+ * May 2014
  *
  */
 
@@ -53,6 +53,14 @@
 
 @implementation APPRTCAppClient
 
+#pragma mark - Logging
+
+- (void)logMessage:(NSString *)message {
+    NSLog(@"APPRTCAppClient - %@", message);
+}
+
+#pragma mark - Initialization
+
 - (id)init {
     
     if (self = [super init]) {
@@ -66,6 +74,8 @@
 
 - (void)connectToRoom:(NSURL *)url {
     
+    [self logMessage:[NSString stringWithFormat:@"Connecting to room: %@", url]];
+    
     NSString *path = [NSString stringWithFormat:@"https:%@", [url resourceSpecifier]];
     NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:path]];
     
@@ -74,7 +84,13 @@
                                        queue:self.operationQueue
                            completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
                               
+                               
                                __strong APPRTCAppClient *strongThis = this;
+                               
+                               NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+                               [strongThis logMessage:[NSString stringWithFormat:@"Received HTTP response with code: %d, headers: %@",
+                                                       [httpResponse statusCode], [httpResponse allHeaderFields]]];
+                               
                                [strongThis parseConnectionResponse:data requestURL:response.URL];
                            }];
 }
@@ -84,36 +100,40 @@
 - (void)parseConnectionResponse:(NSData *)response requestURL:(NSURL *)requestURL{
 
     if (!response) { return; }
-    
+
     NSString *roomHtml = [[NSString alloc] initWithData:response encoding:NSUTF8StringEncoding];
     if ([self isRoomFool:roomHtml]) {
         [self showMessage:@"Room is full"];
         return;
     }
     
-    NSString *fullUrl = [requestURL absoluteString];
-    NSRange queryRange = [fullUrl rangeOfString:@"?"];
-    self.baseURL = [fullUrl substringToIndex:queryRange.location];
-    
+    NSRange queryRange = [[requestURL absoluteString] rangeOfString:@"?"];
+    self.baseURL = [[requestURL absoluteString] substringToIndex:queryRange.location];
+    [self logMessage:[NSString stringWithFormat:@"BaseUr: %@", self.baseURL]];
+
     self.token = [self findVariable:@"channelToken" inString:roomHtml strippingQuotes:YES];
-    if (!self.token) { return; }
+    if (!self.token) { [self logMessage:@"Invalid token, returning here"]; return; }
+    [self logMessage:[NSString stringWithFormat:@"Received token: %@", self.token]];
     
     NSString *roomKey = [self findVariable:@"roomKey" inString:roomHtml strippingQuotes:YES];
+    if (!roomKey || !roomKey.length) { [self logMessage:@"Invalid roomKey, returning here!"]; return; }
+    [self logMessage:[NSString stringWithFormat:@"Received room key: %@", roomKey]];
+    
     NSString *me = [self findVariable:@"me" inString:roomHtml strippingQuotes:YES];
-    if (!roomKey || !me) { return; }
+    if (!me || !me.length) { [self logMessage:@"Invalid me, returning here!"]; return; }
+    [self logMessage:[NSString stringWithFormat:@"Received me: %@", me]];
     
     self.postMessageUrl = [NSString stringWithFormat:@"/message?r=%@&u=%@", roomKey, me];
+    [self logMessage:[NSString stringWithFormat:@"PostMessageUrl: %@", self.postMessageUrl]];
 
     NSString *pcConfig = [self findVariable:@"pcConfig" inString:roomHtml strippingQuotes:NO];
-    if (!pcConfig) { return; }
+    if (!pcConfig) { [self logMessage:@"Invalid pcConfig, returning here!"]; return; }
+    [self logMessage:[NSString stringWithFormat:@"Received pcConfig: %@", pcConfig]];
     
     NSString *turnServerUrl = [self findVariable:@"turnUrl" inString:roomHtml strippingQuotes:YES];
-    if (turnServerUrl) {
-        [self maybeLogMessage: [NSString stringWithFormat:@"TURN server request URL: %@", turnServerUrl]];
-    }
+    [self logMessage:[NSString stringWithFormat:@"TURN server URL: %@", turnServerUrl]];
     
     NSDictionary *json = [self decodeJsonObject:pcConfig];
-    
     NSArray *servers = [json objectForKey:@"iceServers"];
     NSString *username = json[@"username"];
     
@@ -159,7 +179,7 @@
         
         if (!credential) { credential = @""; }
         
-        [self maybeLogMessage: [NSString stringWithFormat:@"url [%@] - credential [%@]", url, credential]];
+        [self logMessage:[NSString stringWithFormat:@"url [%@] - credential [%@]", url, credential]];
         RTCICEServer *ICEServer = [[RTCICEServer alloc] initWithURI:[NSURL URLWithString:url]
                                                            username:username
                                                            password:credential];
@@ -173,8 +193,8 @@
 
 - (NSString *)findVariable:(NSString *)name inString:(NSString *)string strippingQuotes:(BOOL)strippingQuotes {
     
-    NSError* error = nil;
-    NSString* pattern = [NSString stringWithFormat:@".*\n *var %@ = ([^\n]*);\n.*", name];
+    NSError *error = nil;
+    NSString *pattern = [NSString stringWithFormat:@".*\n *var %@ = ([^\n]*);\n.*", name];
     NSRegularExpression *regexp = [NSRegularExpression regularExpressionWithPattern:pattern
                                                                             options:0
                                                                               error:&error];
@@ -206,35 +226,40 @@
 
 - (void)sendData:(NSData *)data {
 
-    [self maybeLogMessage:@"Send message"];
-    [self.sendingSet addObject:[data copy]];
-    
-    [self requestQueueDrainInBackground];
+    @synchronized(self) {
+        
+        [self logMessage:@"Send message"];
+        [self.sendingSet addObject:[data copy]];
+        
+        [self requestQueueDrainInBackground];
+    }
 }
 
 - (void)requestQueueDrainInBackground {
 
-    __weak id this = self;
-    void (^blockOperation)() = ^(){
-    
-        __strong APPRTCAppClient *strongThis = this;
-        if ([strongThis.postMessageUrl length] < 1) { return; }
+    @synchronized(self) {
+        __weak id this = self;
+        void (^blockOperation)() = ^(){
+            
+            __strong APPRTCAppClient *strongThis = this;
+            if ([strongThis.postMessageUrl length] < 1) { return; }
+            
+            NSArray *sendQueue = [NSArray arrayWithArray:[strongThis.sendingSet allObjects]];
+            for (NSData *data in sendQueue) {
+                NSString *url = [NSString stringWithFormat:@"%@/%@", self.baseURL, self.postMessageUrl];
+                [self sendData:data withUrl:url];
+            }
+            
+            [strongThis.sendingSet minusSet:[NSSet setWithArray:sendQueue]];
+        };
         
-        NSArray *sendQueue = [NSArray arrayWithArray:[strongThis.sendingSet allObjects]];
-        for (NSData *data in sendQueue) {
-            NSString *url = [NSString stringWithFormat:@"%@/%@", self.baseURL, self.postMessageUrl];
-            [self sendData:data withUrl:url];
+        if (![NSThread isMainThread]) {
+            NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:blockOperation];
+            [self.operationQueue addOperation:operation];
         }
-        
-        [strongThis.sendingSet minusSet:[NSSet setWithArray:sendQueue]];
-    };
-    
-    if (![NSThread isMainThread]) {
-        NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:blockOperation];
-        [self.operationQueue addOperation:operation];
-    }
-    else {
-        blockOperation();
+        else {
+            blockOperation();
+        }
     }
 }
 
@@ -255,6 +280,12 @@
 
 - (void)showMessage:(NSString *)message {
 
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self showMessage:message];
+        });
+        return;
+    }
     UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Unable to join"
                                                         message:message
                                                        delegate:nil
@@ -265,13 +296,16 @@
 
 - (void)updateICEServers:(NSMutableArray *)ICEServers withTurnServer:(NSString *)turnServerUrl {
     
+    [self logMessage:[NSString stringWithFormat:@"Updating ICEServers with turnServerUrl: %@", turnServerUrl]];
+    
     if ([turnServerUrl length] < 1) {
         
         if ([self.ICEServerDelegate respondsToSelector:@selector(onICEServers:)]) {
             [self.ICEServerDelegate onICEServers:ICEServers];
         }
         
-        self.gaeChannel =  [[GAEChannelClient alloc] initWithToken:self.token delegate:self.messageHandler];
+        self.gaeChannel =  [[GAEChannelClient alloc] initWithToken:self.token
+                                                          delegate:self.messageHandler];
         return;
     }
     
@@ -287,6 +321,7 @@
                                                              error:&sendingError];
 
     NSDictionary *json = [self decodeJsonObject:[[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding]];
+    [self logMessage:[NSString stringWithFormat:@"Received updateICEServers response: %@", json]];
     
     NSString *username = json[@"username"];
     NSString *password = json[@"password"];
@@ -298,6 +333,8 @@
                                                            username:username
                                                            password:password];
         [ICEServers addObject:ICEServer];
+        [self logMessage:[NSString stringWithFormat:@"Created RTCICEServer with URI: %@, username: %@, password: %@",
+                          turnServer, username, password]];
     }
     
     if ([self.ICEServerDelegate respondsToSelector:@selector(onICEServers:)]) {
@@ -314,14 +351,6 @@
                                                                    delegate:strongThis.messageHandler];
         }
     });
-}
-
-#pragma mark - Logging
-
-- (void)maybeLogMessage:(NSString *)message {
-    if (self.verboseLogging) {
-        //NSLog(@"%@", message);
-    }
 }
 
 @end

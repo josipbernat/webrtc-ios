@@ -43,9 +43,18 @@
 
 @implementation GAEChannelClient
 
+#pragma mark - Logging
+
+- (void)logMessage:(NSString *)message {
+     NSLog(@"GAEChannelClient - %@", message);
+}
+
 #pragma mark - Memory Management
 
 - (void)dealloc {
+
+    [self logMessage:@"Deallocating GAEChannelClient"];
+    
     _webView.delegate = nil;
     [_webView stopLoading];
 }
@@ -64,6 +73,8 @@
       NSURL *htmlUrl = [NSURL fileURLWithPath:htmlPath];
       NSString *path = [NSString stringWithFormat:@"%@?token=%@", [htmlUrl absoluteString], token];
 
+      [self logMessage:[NSString stringWithFormat:@"WebView loading request: %@", [NSURL URLWithString:path]]];
+      
       [_webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:path]]];
   }
     
@@ -93,32 +104,45 @@
     
     if ([method isEqualToString:@"onopen"]) {
         
+        [self logMessage:@"onopen"];
         if ([(NSObject *)_delegate respondsToSelector:@selector(onOpen)]) {
             [self.delegate onOpen];
         }
     }
     else if ([method isEqualToString:@"onmessage"]) {
         
+        [self logMessage:@"onmessage"];
         if ([(NSObject *)_delegate respondsToSelector:@selector(onMessage:)]) {
             [self.delegate onMessage:message];
         }
     }
     else if ([method isEqualToString:@"onclose"]) {
         
+        [self logMessage:@"onclose"];
         if ([(NSObject *)_delegate respondsToSelector:@selector(onClose)]) {
             [self.delegate onClose];
         }
     }
     else if ([method isEqualToString:@"onerror"]) {
         // TODO(hughv): Get error.
+        
+        NSRange onErrorRange = [[request.URL absoluteString] rangeOfString:@"onerror"];
+        NSRange messageRange = [[request.URL absoluteString] rangeOfString:@"message"];
+        
+        NSString *code = @"0";
+        if (onErrorRange.location != NSNotFound &&
+            messageRange.location != NSNotFound) {
+            code = [[request.URL absoluteString] substringWithRange:NSMakeRange(onErrorRange.location + onErrorRange.length + 1, 3)];
+        }
+        
+        [self logMessage:@"onerror"];
         if ([(NSObject *)_delegate respondsToSelector:@selector(onError:withDescription:)]) {
-            [self.delegate onError:-1
+            [self.delegate onError:[code integerValue]
                    withDescription:message];
         }
     }
     else {
-        NSAssert(NO, @"Invalid message sent from UIWebView: %@",
-                 resourceSpecifier);
+        NSAssert(NO, @"Invalid message sent from UIWebView: %@", resourceSpecifier);
     }
     
     return YES;
